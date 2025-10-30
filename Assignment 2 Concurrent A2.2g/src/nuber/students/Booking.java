@@ -1,4 +1,6 @@
 package nuber.students;
+import java.util.Date;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 
@@ -19,6 +21,13 @@ package nuber.students;
  *
  */
 public class Booking {
+	private static final AtomicInteger NEXT_ID = new AtomicInteger(0);
+
+    private final int jobID;
+    private final NuberDispatch dispatch;
+    private final Passenger passenger;
+    private final long createdAtMillis;
+    private Driver driver;
 
 		
 	/**
@@ -31,6 +40,15 @@ public class Booking {
 	 */
 	public Booking(NuberDispatch dispatch, Passenger passenger)
 	{
+		this.dispatch = dispatch;
+        this.passenger = passenger;
+        this.jobID = NEXT_ID.incrementAndGet();
+        this.createdAtMillis = new Date().getTime();
+
+        
+        if (this.dispatch != null) {
+            this.dispatch.logEvent(this, "Creating booking");
+        }
 	}
 	
 	/**
@@ -43,13 +61,45 @@ public class Booking {
 	 * 4.	It must then call the Driver.driveToDestination() function, with the thread pausing 
 	 * 			whilst as function is called.
 	 * 5.	Once at the destination, the time is recorded, so we know the total trip duration. 
-	 * 6.	The driver, now free, is added back into Dispatch’s list of available drivers. 
+	 * 6.	The driver, now free, is added back into Dispatchï¿½s list of available drivers. 
 	 * 7.	The call() function the returns a BookingResult object, passing in the appropriate 
 	 * 			information required in the BookingResult constructor.
 	 *
 	 * @return A BookingResult containing the final information about the booking 
 	 */
 	public BookingResult call() {
+		//Request a driver; if none are available,then wait
+		if (dispatch != null) {
+            dispatch.logEvent(this, "Starting booking, getting driver");
+        }
+        try {
+            while (driver == null) {
+                driver = dispatch.getDriver();     
+                if (driver == null) {
+                    Thread.sleep(10);             
+                }
+            }
+
+            //pick up guests
+            dispatch.logEvent(this, "Starting, on way to passenger");
+            driver.pickUpPassenger(passenger);
+            dispatch.logEvent(this, "Collected passenger, on way to destination");
+            driver.driveToDestination();
+
+        } catch (InterruptedException ie) {
+            
+            Thread.currentThread().interrupt();
+        } finally {
+            //Return the driver to the idle queue (even if there is an error).
+            if (dispatch != null && driver != null) {
+                dispatch.logEvent(this, "At destination, driver is now free");
+                dispatch.addDriver(driver);
+            }
+        }
+
+       //Calculate the total time and return the result.
+        long totalDuration = new Date().getTime() - createdAtMillis;
+        return new BookingResult(jobID, passenger, driver, totalDuration);
 
 	}
 	
@@ -66,6 +116,9 @@ public class Booking {
 	@Override
 	public String toString()
 	{
+		String d = (driver == null) ? "null" : driver.name;
+        String p = (passenger == null) ? "null" : passenger.name;
+        return jobID + ":" + d + ":" + p;
 	}
 
 }
