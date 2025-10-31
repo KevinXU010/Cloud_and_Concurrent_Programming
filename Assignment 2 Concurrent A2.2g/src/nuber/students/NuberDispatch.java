@@ -1,7 +1,11 @@
 package nuber.students;
 
 import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * The core Dispatch class that instantiates and manages everything for Nuber
@@ -17,6 +21,13 @@ public class NuberDispatch {
 	private final int MAX_DRIVERS = 999;
 	
 	private boolean logEvents = false;
+	private final BlockingQueue<Driver> availableDrivers = new LinkedBlockingQueue<>(MAX_DRIVERS);
+	
+	private final Map<String, NuberRegion> regions = new HashMap<>();
+	
+	private final AtomicInteger awaitingDriver = new AtomicInteger(0);
+	private volatile boolean shuttingDown = false;
+
 	
 	/**
 	 * Creates a new dispatch objects and instantiates the required regions and any other objects required.
@@ -27,6 +38,14 @@ public class NuberDispatch {
 	 */
 	public NuberDispatch(HashMap<String, Integer> regionInfo, boolean logEvents)
 	{
+		this.logEvents = logEvents;
+        if (regionInfo != null) {
+            for (Map.Entry<String, Integer> e : regionInfo.entrySet()) {
+                String name = e.getKey();
+                int cap = e.getValue() == null ? 0 : e.getValue();
+                regions.put(name, new NuberRegion(this, name, cap));
+            }
+        }
 	}
 	
 	/**
@@ -39,6 +58,8 @@ public class NuberDispatch {
 	 */
 	public boolean addDriver(Driver newDriver)
 	{
+		if (newDriver == null) return false;
+        return availableDrivers.offer(newDriver);
 	}
 	
 	/**
@@ -50,6 +71,12 @@ public class NuberDispatch {
 	 */
 	public Driver getDriver()
 	{
+		Driver d = availableDrivers.poll(); 
+        if (d != null) {
+        
+            awaitingDriver.updateAndGet(x -> x > 0 ? x - 1 : 0);
+        }
+        return d;
 	}
 
 	/**
@@ -80,6 +107,19 @@ public class NuberDispatch {
 	 * @return returns a Future<BookingResult> object
 	 */
 	public Future<BookingResult> bookPassenger(Passenger passenger, String region) {
+		
+		if (shuttingDown) {
+            
+            return null;
+        }
+        NuberRegion r = regions.get(region);
+        if (r == null) {
+            throw new IllegalArgumentException("Unknown region: " + region);
+        }
+        
+        awaitingDriver.incrementAndGet();
+        return r.bookPassenger(passenger);
+		
 	}
 
 	/**
@@ -91,12 +131,18 @@ public class NuberDispatch {
 	 */
 	public int getBookingsAwaitingDriver()
 	{
+		return awaitingDriver.get();
 	}
 	
 	/**
 	 * Tells all regions to finish existing bookings already allocated, and stop accepting new bookings
 	 */
 	public void shutdown() {
+		shuttingDown = true;
+        for (NuberRegion r : regions.values()) {
+            
+            r.shutdown();
+        }
 	}
 
 }
