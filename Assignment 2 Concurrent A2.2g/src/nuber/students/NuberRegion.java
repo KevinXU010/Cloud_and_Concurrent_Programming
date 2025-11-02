@@ -69,13 +69,17 @@ public class NuberRegion {
 
         Callable<BookingResult> task = () -> {
             permits.acquire();
+           
+            dispatch.onActiveDelta(+1);
             try {
                 return booking.call();
-                
             } finally {
+                
+                dispatch.onActiveDelta(-1);
                 permits.release();
             }
         };
+
 
         return executor.submit(task);
 		

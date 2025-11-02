@@ -27,6 +27,7 @@ public class NuberDispatch {
 	
 	private final AtomicInteger awaitingDriver = new AtomicInteger(0);
 	private volatile boolean shuttingDown = false;
+	private final AtomicInteger activeBookings = new AtomicInteger(0);
 
 	
 	/**
@@ -133,6 +134,22 @@ public class NuberDispatch {
 	{
 		return awaitingDriver.get();
 	}
+	
+	public int getActiveBookings() {
+        return activeBookings.get();
+    }
+	
+	
+	public void onActiveDelta(int delta) {
+        int active = (delta > 0)
+                ? activeBookings.incrementAndGet()
+                : activeBookings.updateAndGet(x -> Math.max(0, x - 1));
+        int pending = getBookingsAwaitingDriver();
+        if (logEvents) {
+            System.out.println("Active bookings: " + active + ", pending: " + pending);
+        }
+    }
+	
 	
 	/**
 	 * Tells all regions to finish existing bookings already allocated, and stop accepting new bookings
