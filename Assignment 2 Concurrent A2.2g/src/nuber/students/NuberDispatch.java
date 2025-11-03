@@ -40,13 +40,19 @@ public class NuberDispatch {
 	public NuberDispatch(HashMap<String, Integer> regionInfo, boolean logEvents)
 	{
 		this.logEvents = logEvents;
-        if (regionInfo != null) {
-            for (Map.Entry<String, Integer> e : regionInfo.entrySet()) {
-                String name = e.getKey();
-                int cap = e.getValue() == null ? 0 : e.getValue();
-                regions.put(name, new NuberRegion(this, name, cap));
-            }
-        }
+	    reportEvent("Creating Nuber Dispatch");
+	    int count = (regionInfo == null) ? 0 : regionInfo.size();
+	    reportEvent("Creating " + count + " regions");
+
+	    if (regionInfo != null) {
+	        for (Map.Entry<String, Integer> e : regionInfo.entrySet()) {
+	            String name = e.getKey();
+	            int cap = (e.getValue() == null) ? 0 : e.getValue();
+	            reportEvent("Creating Nuber region for " + name);
+	            regions.put(name, new NuberRegion(this, name, cap));
+	        }
+	    }
+	    reportEvent("Done creating " + count + " regions");
 	}
 	
 	/**
@@ -95,6 +101,17 @@ public class NuberDispatch {
 		System.out.println(booking + ": " + message);
 		
 	}
+	
+	public void reportEvent(String message) {
+	    if (logEvents) {
+	        System.out.println(message);
+	    }
+	}
+	
+	public void logEvent(String message) {
+	    reportEvent(message);
+	}
+	    
 
 	/**
 	 * Books a given passenger into a given Nuber region.
