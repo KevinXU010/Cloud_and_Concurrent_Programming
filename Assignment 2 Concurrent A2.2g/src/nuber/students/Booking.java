@@ -116,8 +116,8 @@ public class Booking {
 	@Override
 	public String toString()
 	{
-		String d = (driver == null) ? "null" : driver.name;
-        String p = (passenger == null) ? "null" : passenger.name;
+		String d = (driver == null) ? "null" :"D-"+ driver.name;
+        String p = (passenger == null) ? "null" :"P-"+ passenger.name;
         return jobID + ":" + d + ":" + p;
 	}
 
